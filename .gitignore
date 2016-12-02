@@ -1,0 +1,4 @@
+*.pyc
+terminator/app/*.pyc
+terminator/test/*.pyc
+terminator/*.pyx
