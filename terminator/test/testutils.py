@@ -35,13 +35,6 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(tc.passwd, "PASSWDHERE")
         self.assertEqual(tc.user, "USERHERE")
 
-    def test_database_client_conf_loader(self):
-        dbc = utils.DataBaseClient(**self.conf)
-        self.assertEqual(dbc.mysql_creds, {"passwd": "DB_PASSWD",
-                                 "host": "DB_HOST_OR_IP",
-                                 "db": "loadbalancing",
-                                 "user": "lbaas"})
-
     def test_get_tenant_id(self):
         self.assertEqual(1023061,
                          utils.get_tenant_id(self.feed['feed']['entry'][0]))
@@ -62,18 +55,6 @@ class TestUtils(unittest.TestCase):
             datetime.datetime(2016, 11, 17, 2, 0, 11, 162000),
             utils.get_event_datetime(self.feed['feed']['entry'][1]))
 
-    def test_build_uuid_query(self):
-        dbc = utils.DataBaseClient(**self.conf)
-        uuids = ["urn:uuid:11111111-1111-1111-1111-1111111111111111",
-                 "urn:uuid:22222222-2222-2222-2222-2222222222222222",
-                 "urn:uuid:33333333-3333-3333-3333-3333333333333333",
-                 "urn:uuid:44444444-4444-4444-4444-4444444444444444"]
-        q = dbc._select_entries_by_uuid_builder(uuids)
-        exp = ["select * from entry where uuid in ("]
-        cols = ["\"%s\"" % uuid for uuid in uuids]
-        exp.append(','.join(cols))
-        exp.append(")")
-        self.assertEqual(''.join(exp), q)
 
 
 
@@ -87,12 +68,7 @@ conf_text = """
         "url": "https://identity.api.rackspacecloud.com",
         "user": "USERHERE"
     },
-    "db": {
-     "passwd": "DB_PASSWD",
-     "host": "DB_HOST_OR_IP",
-     "db": "loadbalancing",
-     "user": "lbaas"
-   }
+    "db": "mysql://blahfuckingblackingblah"
 }
 """
 
