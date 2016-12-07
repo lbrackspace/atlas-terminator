@@ -1,5 +1,6 @@
 .idea/*
 *.pyc
 terminator/app/*.pyc
+terminator/app/db/*.pyc
 terminator/test/*.pyc
 terminator/*.pyx

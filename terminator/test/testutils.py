@@ -20,13 +20,13 @@ class TestUtils(unittest.TestCase):
     def test_feed_parser(self):
         # We are testing the feed parser so we don't need to connect to
         # Terminator
-        tc = utils.TerminatorFeedClient(**self.conf)
+        tc = utils.TerminatorFeedClient(conf=self.conf)
         # Pretend we made a feed call and below is the feed object we got
         parsed_obj = utils.parse_feeds(self.feed)
         pass
 
     def test_feed_client_conf_loader(self):
-        tc = utils.TerminatorFeedClient(**self.conf)
+        tc = utils.TerminatorFeedClient(conf=self.conf)
         expected_feed_url = \
             string.join(["https://atom.prod.dfw1.us.ci.rackspace.net",
                          "/customer_access_policy/events"], sep='')

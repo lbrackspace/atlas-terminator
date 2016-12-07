@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import MySQLdb.cursors
-import MySQLdb
+import sqlalchemy
+from terminator.app.db import tables
 import dateutil.parser
 import dateutil.tz
 import datetime
@@ -9,6 +9,7 @@ import operator
 import logging
 import requests
 import json
+import os
 
 # The configuration **kw argument for the below classes can be loaded from json and passed in via the
 # the keywords parameter of the classes for exampple
@@ -35,18 +36,18 @@ import json
 # conf = json.loads(above_example)
 # tfc = TerminatorFeedClient(**conf)
 
-
-
-
+DEFAULT_CONF_FILE = "/etc/openstack/atlas/terminator.json"
 
 class TerminatorFeedClient(object):
-    def __init__(self, *args, **kw):
-        self.url = kw['auth']['url']
-        self.user = kw['auth']['user']
-        self.passwd = kw['auth']['passwd']
+    def __init__(self, conf=None):
+        if conf is None:
+            conf = load_json(DEFAULT_CONF_FILE)
+        self.url = conf['auth']['url']
+        self.user = conf['auth']['user']
+        self.passwd = conf['auth']['passwd']
         self.token = None
         self.expires = None
-        self.feed_url = kw['feed']['url']
+        self.feed_url = conf['feed']['url']
 
     def get_token(self):
         up = {'username': self.user, 'password': self.passwd}
@@ -95,7 +96,7 @@ def parse_feeds(feed_obj):
         ev = get_event(entry)
         entries.append({'entry_id': eid, 'tenant_id': tid,
                         'event_time': dt, 'event': ev,
-                        'entry_body': entry})
+                        'entry_body': json.dumps(entry)})
     return sorted(entries, key=operator.itemgetter("event_time"))
 
 
@@ -120,6 +121,23 @@ def get_event_datetime(entry):
     return dt
 
 
-def now():
-    return datetime.datetime.now(dateutil.tz.tzutc()).replace(tzinfo=None)
+def load_json(file_path):
+    full_path = os.path.expanduser(file_path)
+    with open(full_path) as fp:
+        json_text = fp.read()
+        obj = json.loads(json_text)
+    return obj
+
+
+def get_db_engine(conf=None):
+    if conf is None:
+        conf = load_json(DEFAULT_CONF_FILE)
+    engine = sqlalchemy.create_engine(conf['db'], echo=True)
+    return engine
+
+
+# Only run once during the life time of the app
+def create_tables(conf=None):
+    engine = get_db_engine(conf=conf)
+    tables.metadata.create_all(engine)
 
