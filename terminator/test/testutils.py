@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
+from terminator.app.db import tables, crud
 import unittest
 import datetime
-from dateutil import tz
 import string
 import json
 import os
@@ -22,7 +22,7 @@ class TestUtils(unittest.TestCase):
         # Terminator
         tc = utils.TerminatorFeedClient(conf=self.conf)
         # Pretend we made a feed call and below is the feed object we got
-        parsed_obj = utils.parse_feeds(self.feed)
+        parsed_obj = tc.parse_entries(self.feed)
         pass
 
     def test_feed_client_conf_loader(self):
@@ -55,21 +55,54 @@ class TestUtils(unittest.TestCase):
             datetime.datetime(2016, 11, 17, 2, 0, 11, 162000),
             utils.get_event_datetime(self.feed['feed']['entry'][1]))
 
+    @unittest.skip("testing against the real terminator feed is slow.")
+    def test_get_all_feeds(self):
+        # It should be safe to test with the real terminator client
+        tfc = utils.TerminatorFeedClient()
+        tfc.get_token()
+        entries = tfc.get_all_entries(25)
+        self.assertTrue(len(entries) > 0)
 
+    def test_load_clb_conf(self):
+        clb = utils.LbaasClient(self.conf)
+        self.assertEqual(clb.conf['clb']['passwd'], "somepasswd")
+        self.assertEqual(clb.conf['clb']['user'], "someracker")
+        self.assertEqual(clb.conf['clb']['dc'],
+            {"somedc": { "endpoint": "someendpoint"},
+             "anotherdc": {"endpoint": "anotherendpoint"}})
 
+    @unittest.skip("not really wanting to test in production")
+    def test_clb_client(self):
+        clb = utils.LbaasClient()
+        clb.set_dc('iad')
+        lbs = clb.get_lbs(354934)
+        self.assertTrue(type(lbs) is list)
 
 conf_text = """
 {
-    "feed": {
-        "url": "https://atom.prod.dfw1.us.ci.rackspace.net/customer_access_policy/events"
-    },
-    "auth": {
-        "passwd": "PASSWDHERE",
-        "url": "https://identity.api.rackspacecloud.com",
-        "user": "USERHERE"
-    },
-    "db": "mysql://blahfuckingblackingblah"
+  "feed": {
+    "url": "https://atom.prod.dfw1.us.ci.rackspace.net/customer_access_policy/events"
+  },
+  "db": "sqlite://",
+  "clb": {
+    "passwd": "somepasswd",
+    "user": "someracker",
+    "dc": {
+      "somedc": {
+        "endpoint": "some_endpoint"
+      },
+      "anotherdc": {
+        "endpoint": "anotherendpoint"
+      }
+    }
+  },
+  "auth": {
+    "passwd": "PASSWDHERE",
+    "url": "https://identity.api.rackspacecloud.com",
+    "user": "USERHERE"
+  }
 }
+
 """
 
 if __name__ == "__main__":

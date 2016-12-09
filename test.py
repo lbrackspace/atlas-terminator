@@ -15,16 +15,16 @@ feed_path = "./terminator/test/test.json"
 feed_json = open(os.path.expanduser(feed_path),"r").read()
 
 conf = json.loads(open("/etc/openstack/atlas/terminator.json").read())
-tfc = utils.TerminatorFeedClient(conf)
+
+clb = utils.LbaasClient()
+clb.set_dc('iad')
+clb.get_lbs(384934)
+
+
+tfc = utils.TerminatorFeedClient()
 tfc.get_token()
-kw = {'params': {'marker': 'last','limit': 1000}}
 
-r = tfc.get_feeds(**kw)
-feeds = json.loads(r.text)
-feed_entries = utils.parse_feeds(feeds)
-
-r = json.loads(feed_json)
-feed_entries = utils.parse_feeds(r)
+feed_entries = tfc.get_all_entries(1000)
 
 sess = crud.get_session()
 crud.inc_curr_run(sess)
@@ -32,3 +32,4 @@ new_entries = crud.get_new_entries(sess,feed_entries)
 crud.save_entries(sess, new_entries)
 
 
+rows = sess.query(tables.Entry).all()

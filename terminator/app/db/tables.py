@@ -9,7 +9,7 @@ metadata = sqlalchemy.MetaData()
 curr_run_id = None
 
 run_table = Table('run', metadata,
-                  Column('id', Integer, primary_key=True),
+                  Column('id', Integer, primary_key=True, autoincrement=True),
                   Column('ran_at', DateTime, index=True),
                   mysql_engine='InnoDB',
                   mysql_charset='utf8')
@@ -35,10 +35,12 @@ class Run(object):
 entry_table = Table('entry', metadata,
                     Column('id', Integer, primary_key=True),
                     Column('run_id', Integer, index=True),
+                    Column('dc', String(16)),
+                    Column('region', String(16)),
                     Column('entry_id', String(45), unique=True),
                     Column('tenant_id', Integer, index=True),
                     Column('event_time', DateTime, index=True),
-                    Column('event', String(16), index=True),
+                    Column('event', String(16)),
                     Column('event_body', Text),
                     Column('needs_push', Boolean, index=True),
                     Column('num_attempts', Integer),
@@ -54,10 +56,12 @@ class Entry(object):
         global curr_run_id
         self.entry_id = kw.get('entry_id', None)
         self.run_id = kw.get('run_id', kw.get('run_id', curr_run_id)),
+        self.dc = kw.get('dc', None)
+        self.region = kw.get('region', None)
         self.tenant_id = kw.get('tenant_id', None),
         self.event_time = kw.get('event_time', None)
         self.event = kw.get('event', None)
-        self.event_body = kw.get('event_body', None)
+        self.event_body = kw.get('entry_body', None)
         self.needs_push = kw.get('needs_push', None)
         self.num_attempts = kw.get('num_attempt', 0)
         self.created_time = kw.get('created_time', now())
@@ -65,9 +69,10 @@ class Entry(object):
 
     def to_dict(self):
         out = {}
-        for attr in ['id', 'entry_id', 'run_id', 'tenant_id', 'event_time',
-                     'event', 'event_body', 'needs_push', 'num_attempts',
-                     'created_time', 'finished_time']:
+        for attr in ['id', 'dc', 'region', 'entry_id', 'run_id',
+                     'tenant_id', 'event_time', 'event', 'event_body',
+                     'needs_push', 'num_attempts', 'created_time',
+                     'finished_time']:
             out[attr] = getattr(self, attr, None)
         return out
 
@@ -80,15 +85,15 @@ class Entry(object):
 
 action_table = Table('action', metadata,
                      Column('id', Integer, primary_key=True),
-                     Column('run_id', Integer, index=True),
-                     Column('aid', Integer, index=True),
-                     Column('lid', Integer, index=True),
+                     Column('run_id', Integer),
+                     Column('dc', String(8)),
+                     Column('aid', Integer),
+                     Column('lid', Integer),
                      Column('status_from', String(32)),
                      Column('status_to', String(32)),
                      Column('time', DateTime, index=True),
-                     Column('sucsess', Boolean),
+                     Column('success', Boolean),
                      Column('comment', Text),
-                     Index('run_aid', 'run_id', 'aid'),
                      mysql_engine='InnoDB',
                      mysql_charset='utf8')
 
@@ -97,6 +102,7 @@ class Action(object):
     def __init__(self, *args, **kw):
         global curr_run_id
         self.aid = kw.get('aid')
+        self.dc = kw.get('dc')
         self.lid = kw.get('lid')
         self.run = kw.get('run_id', kw.get('run_id', curr_run_id))
         self.status_from = kw.get('status_from')
@@ -106,8 +112,8 @@ class Action(object):
 
     def to_dict(self):
         out = {}
-        for attr in ['id', 'run_id', 'aid', 'lid', 'status_from', 'status_to',
-                     'time', 'success']:
+        for attr in ['id', 'run_id', 'dc', 'aid', 'lid', 'status_from',
+                     'status_to', 'time', 'success']:
             out[attr] = getattr(self, attr, None)
         return out
 
@@ -123,9 +129,7 @@ log_table = Table('log', metadata,
                   Column('run_id', Integer, index=True),
                   Column('msg', Text),
                   Column('tenant_id', Integer, index=True),
-                  Column('created', DateTime),
-                  Column('run_num', Integer),
-                  Index('run_tenant_idx', 'run_id', 'tenant_id'),
+                  Column('created', DateTime, index=True),
                   mysql_engine='InnoDB',
                   mysql_charset='utf8')
 
