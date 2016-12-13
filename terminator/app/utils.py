@@ -14,17 +14,17 @@ import os
 DEFAULT_CONF_FILE = "/etc/openstack/atlas/terminator.json"
 engine = None
 
+
 class TerminatorFeedClient(object):
     def __init__(self, conf=None):
-        if conf is None:
-            conf = load_json(DEFAULT_CONF_FILE)
-        self.conf = conf
+        conf = load_config(conf)
         self.url = conf['auth']['url']
         self.user = conf['auth']['user']
         self.passwd = conf['auth']['passwd']
         self.token = None
         self.expires = None
         self.feed_url = conf['feed']['url']
+        self.conf = conf
 
     def get_token(self):
         up = {'username': self.user, 'password': self.passwd}
@@ -92,13 +92,9 @@ class TerminatorFeedClient(object):
         return entries
 
 
-
-
 class LbaasClient(object):
     def __init__(self, conf=None):
-        if conf is None:
-            conf = load_json(DEFAULT_CONF_FILE)
-        self.conf = conf
+        self.conf = load_config(conf)
         self.dc = None
         user = self.conf['clb']['user']
         passwd = self.conf['clb']['passwd']
@@ -133,6 +129,10 @@ class LbaasClient(object):
         return out
 
 
+def load_config(conf=None):
+    if conf is None:
+        conf = load_json(DEFAULT_CONF_FILE)
+    return conf
 
 def get_tenant_id(entry):
     tid = None
@@ -191,7 +191,7 @@ def save_json(file_path, obj):
         fp.write(json_text)
 
 
-def get_db_engine(conf=None):
+def get_db_engine(conf=None,echo=False):
     global engine
     if conf is None:
         conf = load_json(DEFAULT_CONF_FILE)

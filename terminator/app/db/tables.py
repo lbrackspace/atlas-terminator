@@ -138,7 +138,7 @@ class Log(object):
     def __init__(self, *args, **kw):
         global curr_run_id
         self.msg = kw.get('msg', None)
-        self.run = kw.get('run_id', kw.get('run_id', curr_run_id))
+        self.run_id = kw.get('run_id', kw.get('run_id', curr_run_id))
         self.tenant_id = kw.get('tenant_id', None)
         self.created = kw.get('created', now())
 

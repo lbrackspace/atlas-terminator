@@ -10,6 +10,10 @@ import os
 from terminator.app import utils
 from terminator.app.db import crud
 from terminator.app.db import tables
+from terminator.app import terminator_app
+
+ta = terminator_app.TerminatorApp()
+
 
 feed_path = "./terminator/test/test.json"
 feed_json = open(os.path.expanduser(feed_path),"r").read()
@@ -18,7 +22,7 @@ conf = json.loads(open("/etc/openstack/atlas/terminator.json").read())
 
 clb = utils.LbaasClient()
 clb.set_dc('iad')
-clb.get_lbs(384934)
+clb.get_lbs(354934)
 
 
 tfc = utils.TerminatorFeedClient()
@@ -33,3 +37,6 @@ crud.save_entries(sess, new_entries)
 
 
 rows = sess.query(tables.Entry).all()
+
+
+

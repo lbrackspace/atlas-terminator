@@ -1,8 +1,10 @@
+import sqlalchemy
 from terminator.app.db import tables
 from sqlalchemy.orm import sessionmaker
 from terminator.app import utils
 
 DBSession = None
+
 
 def get_session(conf=None):
     global DBSession
@@ -21,7 +23,8 @@ def inc_curr_run(sess):
     return run_id
 
 def get_curr_run(sess):
-    run = sess.query(tables.Run).order_by('-id').first()
+    col = tables.Run.id
+    run = sess.query(tables.Run).order_by(sqlalchemy.desc(col)).first()
     run_id = run.id
     tables.curr_run_id = run_id
     return run_id

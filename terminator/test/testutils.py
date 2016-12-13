@@ -8,6 +8,7 @@ import json
 import os
 
 from terminator.app import utils
+from terminator.app import terminator_app
 
 class TestUtils(unittest.TestCase):
     def setUp(self):
@@ -55,15 +56,7 @@ class TestUtils(unittest.TestCase):
             datetime.datetime(2016, 11, 17, 2, 0, 11, 162000),
             utils.get_event_datetime(self.feed['feed']['entry'][1]))
 
-    @unittest.skip("testing against the real terminator feed is slow.")
-    def test_get_all_feeds(self):
-        # It should be safe to test with the real terminator client
-        tfc = utils.TerminatorFeedClient()
-        tfc.get_token()
-        entries = tfc.get_all_entries(25)
-        self.assertTrue(len(entries) > 0)
-
-    def test_load_clb_conf(self):
+    def test_load_terminator_app_conf(self):
         clb = utils.LbaasClient(self.conf)
         self.assertEqual(clb.conf['clb']['passwd'], "somepasswd")
         self.assertEqual(clb.conf['clb']['user'], "someracker")
@@ -78,6 +71,25 @@ class TestUtils(unittest.TestCase):
         lbs = clb.get_lbs(354934)
         self.assertTrue(type(lbs) is list)
 
+    @unittest.skip("testing against the real terminator feed is slow.")
+    def test_get_all_feeds(self):
+        # It should be safe to test with the real terminator client
+        tfc = utils.TerminatorFeedClient()
+        tfc.get_token()
+        entries = tfc.get_all_entries(25)
+        self.assertTrue(len(entries) > 0)
+
+    @unittest.skip("You need a real database to run this test.")
+    def test_logger(self):
+        l = terminator_app.TerminatorLogger()
+        sess = crud.get_session()
+        crud.get_curr_run(sess)
+        l.set_tenant_id(354934)
+        l.log("Testing if the logger works")
+        l.log("Testing some more")
+        l.log("hope the db didn't explode")
+
+
 conf_text = """
 {
   "feed": {
@@ -89,7 +101,7 @@ conf_text = """
     "user": "someracker",
     "dc": {
       "somedc": {
-        "endpoint": "some_endpoint"
+        "endpoint": "someendpoint"
       },
       "anotherdc": {
         "endpoint": "anotherendpoint"
