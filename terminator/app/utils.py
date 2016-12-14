@@ -106,11 +106,32 @@ class LbaasClient(object):
     def set_dc(self, dc):
         self.dc = dc
 
+    def suspend_lb(self, ticket_id, lid):
+        susp = {"reason": "Cause I said so",
+                "ticket": {
+                    "comment": "Terminator feed request",
+                    "ticketId": ticket_id},
+                "user": self.conf['clb']['user']}
+        uri = "management/loadbalancers/%d/suspension" % (lid,)
+        dc = self.dc
+        ep = self.conf['clb']['dc'][dc]['endpoint']
+        data = json.dumps(susp, indent=4)
+        url = ep + uri
+        req = requests.post(url, data=data, headers=self.headers)
+        return req
+
+    def unsuspend_lb(self, terminator_feed_id, lid):
+        uri = "management/loadbalancers/%d/suspension" % (lid,)
+        dc = self.dc
+        ep = self.conf['clb']['dc'][dc]['endpoint']
+        req = requests.get(ep + uri, headers=self.headers)
+        return req
+
     def get_lbs(self, aid):
         out = []
         dc = self.dc
         ep = self.conf['clb']['dc'][dc]['endpoint']
-        uri = "/management/accounts/%d/loadbalancers" %(aid,)
+        uri = "management/accounts/%d/loadbalancers" % (aid, )
         req = requests.get(ep + uri, headers=self.headers)
         if req.status_code == 404:
             logging.info("coulden't find account %d in region %s skipping",

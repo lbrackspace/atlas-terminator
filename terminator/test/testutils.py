@@ -89,6 +89,18 @@ class TestUtils(unittest.TestCase):
         l.log("Testing some more")
         l.log("hope the db didn't explode")
 
+    @unittest.skip("Still trying to figure out how to automate this")
+    def test_suspend_my_account(self):
+        ta = terminator_app.TerminatorApp()
+        ta.suspend_aid("TEST", 354934)
+
+    #@unittest.skip("this one too")
+    def test_suspend_my_account(self):
+        ta = terminator_app.TerminatorApp()
+        ta.unsuspend_aid("TEST", 354934)
+
+
+
 
 conf_text = """
 {
@@ -99,6 +111,7 @@ conf_text = """
   "clb": {
     "passwd": "somepasswd",
     "user": "someracker",
+    "delay": 5,
     "dc": {
       "somedc": {
         "endpoint": "someendpoint"
