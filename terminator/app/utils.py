@@ -124,7 +124,25 @@ class LbaasClient(object):
         uri = "management/loadbalancers/%d/suspension" % (lid,)
         dc = self.dc
         ep = self.conf['clb']['dc'][dc]['endpoint']
-        req = requests.get(ep + uri, headers=self.headers)
+        url = ep + uri
+        req = requests.delete(url, headers=self.headers)
+        return req
+
+    # For testing cause my account keeps getting cleaned out
+    def create_lb(self, aid):
+        nodes = [{"address": "216.58.216.196", "port": 80,
+                 "condition": "ENABLED"}]
+        vips = [{"type": "PUBLIC"}]
+        lb = {"name": "terminator_lb_test", "port": 80, "protocol": "HTTP",
+              "virtualIps": vips, "nodes": nodes}
+        uri = "%d/loadbalancers" % (aid, )
+        dc = self.dc
+        ep = self.conf['clb']['dc'][dc]['endpoint']
+        obj = {"loadBalancer": lb}
+        data = json.dumps(obj, indent=4)
+        url = ep + uri
+        req = requests.post(url, headers=self.headers, data=data)
+        text = req.text
         return req
 
     def get_lbs(self, aid):
@@ -132,7 +150,8 @@ class LbaasClient(object):
         dc = self.dc
         ep = self.conf['clb']['dc'][dc]['endpoint']
         uri = "management/accounts/%d/loadbalancers" % (aid, )
-        req = requests.get(ep + uri, headers=self.headers)
+        url = ep + uri
+        req = requests.get(url, headers=self.headers)
         if req.status_code == 404:
             logging.info("coulden't find account %d in region %s skipping",
                          aid, dc)
@@ -216,10 +235,9 @@ def get_db_engine(conf=None,echo=False):
     global engine
     if conf is None:
         conf = load_json(DEFAULT_CONF_FILE)
-    if engine == None:
-        engine = sqlalchemy.create_engine(conf['db'], echo=True)
+    if engine is None:
+        engine = sqlalchemy.create_engine(conf['db'], echo=echo)
     return engine
-
 
 
 # Only run once during the life time of the app

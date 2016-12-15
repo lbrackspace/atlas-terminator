@@ -62,7 +62,7 @@ class TerminatorApp(object):
                 self.lc.set_dc(dc)
                 req = self.lc.unsuspend_lb(terminator_id, lid)
                 time.sleep(self.delay)
-                if req.status_code != 200:
+                if req.status_code != 202:
                     fmt = "Error got http %d when trying to suspend lb %d: %s"
                     self.logger.log(fmt, req.status_code, lid, req.text)
                     act.success = False
@@ -128,6 +128,21 @@ class TerminatorApp(object):
                 lbs[dc].append(lb)
                 lb_count += 1
         return {'lbs': lbs, 'lb_count': lb_count}
+
+    # Create loadbalancers in each region for testing only
+    def create_lbs(self, aid):
+        self.logger.set_tenant_id(aid)
+        for (dc, endpoint) in self.endpoints.iteritems():
+            self.lc.set_dc(dc)
+            self.logger.log("Creating loadbalancer in %s for %d",
+                            dc, aid, )
+            req = self.lc.create_lb(aid)
+            if req.status_code != 202:
+                self.logger.log("Failed to create lb for %s %d %s",
+                                dc, aid, req.text)
+            else:
+                self.logger.log("Success adding lb in %s %d",
+                                dc, aid)
 
 
 # Log via python and to the database

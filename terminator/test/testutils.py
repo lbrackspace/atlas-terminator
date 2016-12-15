@@ -94,12 +94,17 @@ class TestUtils(unittest.TestCase):
         ta = terminator_app.TerminatorApp()
         ta.suspend_aid("TEST", 354934)
 
-    #@unittest.skip("this one too")
+    @unittest.skip("this one too")
+    def test_scan_clb_dbs(self):
+        ta = terminator_app.TerminatorApp()
+        lbs = ta.get_all_lbs(354934)
+        pass
+
+    @unittest.skip("this one too")
     def test_suspend_my_account(self):
         ta = terminator_app.TerminatorApp()
         ta.unsuspend_aid("TEST", 354934)
-
-
+        pass
 
 
 conf_text = """
