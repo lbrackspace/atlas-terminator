@@ -133,14 +133,14 @@ class LbaasClient(object):
 
     # For testing cause my account keeps getting cleaned out
     def create_lb(self, aid):
+        dc = self.dc
         nodes = [{"address": "216.58.216.196", "port": 80,
                  "condition": "ENABLED"}]
         vips = [{"type": "PUBLIC"}]
-        name = "terminator_lb_%d" % (rnd.randint(1000, 9999),)
-        lb = {"name": "terminator_lb_test", "port": 80, "protocol": "HTTP",
+        name = "terminator_lb_%s_%d" % (dc, rnd.randint(1000, 9999),)
+        lb = {"name": name, "port": 80, "protocol": "HTTP",
               "virtualIps": vips, "nodes": nodes}
         uri = "%d/loadbalancers" % (aid, )
-        dc = self.dc
         ep = self.conf['clb']['dc'][dc]['endpoint']
         obj = {"loadBalancer": lb}
         data = json.dumps(obj, indent=4)

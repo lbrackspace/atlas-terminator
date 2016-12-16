@@ -118,7 +118,6 @@ class TestUtils(unittest.TestCase):
         ta = terminator_app.TerminatorApp()
         self.assertTrue(ta.run_iteration())
 
-
 conf_text = """
 {
   "feed": {
