@@ -110,7 +110,7 @@ class LbaasClient(object):
         self.dc = dc
 
     def suspend_lb(self, ticket_id, lid):
-        susp = {"reason": "Cause I said so",
+        susp = {"reason": "Terminator feed",
                 "ticket": {
                     "comment": "Terminator feed request",
                     "ticketId": ticket_id},

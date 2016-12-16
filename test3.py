@@ -41,7 +41,7 @@ for event in ["SUSPEND", "FULL", "SUSPEND", "TERMINATE"]:
     e.tenant_id = 354934
     e.event_time = tables.now()
     e.event = event
-    e.event_body = json.dumps({"pfft":"some_event"})
+    e.event_body = json.dumps({"pfft": "some_event"})
     e.needs_push = True
     e.created_time = tables.now()
     sess.add(e)
