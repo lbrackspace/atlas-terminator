@@ -18,10 +18,66 @@ class TerminatorApp(object):
         self.delay = float(self.conf['clb']['delay'])
         for (dcname, dc_dict) in self.conf['clb']['dc'].iteritems():
             self.endpoints[dcname] = dc_dict['endpoint']
+        if tables.curr_run_id is None:
+            self.bump_run()
 
+    def iteration_body(self):
+        sess = crud.get_session()
+        run_id = crud.inc_curr_run(sess)
+        self.logger.set_tenant_id(0)
+        self.logger.log("Begining run %d", run_id)
+        self.logger.log("fetching new entries from terminator feed")
+        r = self.get_new_terminator_entries()
+        self.logger.log("found %d entries of which %d are new",
+                        r['n_entries'], r['n_new_entries'])
+        ready_entries = crud.get_needs_push(sess)
+        for entry in ready_entries:
+            entry.num_attempts += 1
+            sess.merge(entry)
+            sess.commit()
+            eid = entry.entry_id
+            i = entry.id
+            dc = entry.dc
+            aid = entry.tenant_id
+            region = entry.region
+            self.logger.set_tenant_id(aid)
+            if dc != "GLOBAL" or region != "GLOBAL":
+                fmt = "skipping odd ball entry id %d %s with (region, dc)=%s",
+                regdc = "(%s, %s)" % (region, dc)
+                msg = fmt % (i, eid, regdc)
+                self.logger.log(msg, type="warn")
+                entry.needs_push = False
+                entry.succeeded = False
+                sess.merge(entry)
+                sess.commit()
+                continue
+            self.logger.log("Event %s recieved for aid %s",
+                            entry.event, aid)
+            if entry.event == "SUSPEND":
+                if self.suspend_aid(eid, aid):
+                    entry_succeeded(sess, entry)
+            elif entry.event == "FULL":
+                if self.unsuspend_aid(aid):
+                    entry_succeeded(sess, entry)
+            elif entry.event == "TERMINATED":
+                if self.delete_aid(aid):
+                    entry_succeeded(sess, entry)
 
-    def rest_session(self):
-        self.sess = crud.get_session()
+    def run_iteration(self):
+        try:
+            self.iteration_body()
+            return True
+        except:
+            self.logger.set_tenant_id(0)
+            self.logger.log("Error During run %d exception caught",
+                            tables.curr_run_id, comment=utils.excuse(),
+                            type="error")
+            return False
+
+    def main_loop(self):
+        while True:
+            self.run_iteration(self)
+            time.sleep(self.conf['run_every_n_secs'])
 
     def bump_run(self):
         sess = crud.get_session(self.conf)
@@ -40,7 +96,7 @@ class TerminatorApp(object):
         n_new_entries = len(new_entries)
         return {"n_entries": n_entries, "n_new_entries": n_new_entries}
 
-    def unsuspend_aid(self, terminator_id, aid):
+    def unsuspend_aid(self, aid):
         sess = crud.get_session(self.conf)
         lbs = self.get_all_lbs(aid)
         user = self.conf['clb']['user']
@@ -52,15 +108,17 @@ class TerminatorApp(object):
                 lid = lb['lid']
                 status = lb['status']
                 if status != "SUSPENDED":
-                    self.logger.log("Not unsuspending lb %d status %d",
+                    self.logger.log("Not unsuspending lb %d status %s",
                                     lid, status)
                     continue
                 act = tables.Action(dc=dc, aid=aid, lid=lid,
                                     status_from=status, status_to="ACTIVE")
                 sess.add(act)
                 sess.commit()
+                self.logger.log("Attempting to unsuspend %d_%d %s",
+                                aid, lid, dc)
                 self.lc.set_dc(dc)
-                req = self.lc.unsuspend_lb(terminator_id, lid)
+                req = self.lc.unsuspend_lb(lid)
                 time.sleep(self.delay)
                 if req.status_code != 202:
                     fmt = "Error got http %d when trying to suspend lb %d: %s"
@@ -71,6 +129,7 @@ class TerminatorApp(object):
                     act.success = True
                 sess.merge(act)
                 sess.commit()
+        sess.close()
         return all_unsuspends_worked
 
     def suspend_aid(self, terminator_id, aid):
@@ -97,11 +156,12 @@ class TerminatorApp(object):
                     self.logger.log("not suspending  loadbalancer %d from %s ",
                                     lid, status)
                     continue
-                self.logger.log("Suspending lb %d", lid)
                 act = tables.Action(dc=dc, aid=aid, lid=lid,
                                     status_from=status, status_to="SUSPENDED")
                 sess.add(act)
                 sess.commit()
+                self.logger.log("Attempting to suspend %d_%d %s",
+                                aid, lid, dc)
                 req = self.lc.suspend_lb(terminator_id, lid)
                 time.sleep(self.delay)  #  Cause the api is fragile.
                 if req.status_code != 202:
@@ -113,7 +173,53 @@ class TerminatorApp(object):
                     act.success = True
                 sess.merge(act)
                 sess.commit()
+        sess.close()
         return all_suspends_worked
+
+    def delete_aid(self, aid):
+        sess = crud.get_session(self.conf)
+        lbs = self.get_all_lbs(aid)
+        self.logger.set_tenant_id(aid)
+        self.logger.log("Deleting all LBS for account %d", aid)
+        all_deletes_success = True  # Flip this on failure
+        for (dc, lb_list) in lbs['lbs'].iteritems():
+            for lb in lb_list:
+                lid = lb['lid']
+                status = lb['status']
+                if status != "ACTIVE" and status != "SUSPENDED":
+                    fmt = "Not deleting lb %d_%d in %s its status is %s"
+                    msg = fmt % (aid, lid, dc, status)
+                    self.logger.log(msg, tenant_id=aid)
+                    continue
+                self.logger.log("attempting delete of %d_%d in %s",
+                                aid, lid, dc)
+                self.lc.set_dc(dc)
+                act = tables.Action(dc=dc, aid=aid, lid=lid,
+                                    status_from=status, status_to="DELETED")
+                sess.add(act)
+                sess.commit()
+                if status == "ACTIVE":
+                    req = self.lc.delete_lb(aid, lid)
+                elif status == "SUSPENDED":
+                    req = self.lc.delete_suspended_lb(lid)
+                    # These are special
+                else:
+                    # The if statement above should have been a fail early
+                    # test so this state should be impossible to reach
+                    self.logging.log("Impossible state ERROR", type="error")
+                    continue  # Continue anyways.
+                time.sleep(self.delay)
+                if req.status_code != 202:
+                    fmt = "Error deleting lb %d_%d from %s http %d %s"
+                    msg = fmt % (aid, lid, dc, req.status_code, req.text)
+                    self.logger.log(msg, type="error")
+                    all_deletes_success = False
+                    act.success = False
+                else:
+                    act.success = True
+                sess.merge(act)
+                sess.commit()
+        return all_deletes_success
 
     def get_all_lbs(self, aid):
         lbs = {}
@@ -164,7 +270,7 @@ class TerminatorLogger(object):
             self.reset_session()
         msg = fmt % args
         msg = msg.replace("\n", " ")  # Line feeds are horrible in the db
-        logobj = tables.Log(msg=msg,tenant_id=self.tenant_id)
+        logobj = tables.Log(msg=msg, tenant_id=self.tenant_id)
         self.sess.add(logobj)
         self.sess.commit()
         try:
@@ -172,3 +278,16 @@ class TerminatorLogger(object):
             l(msg)
         except Exception, ex:
             logging.exception("Error writing to log database %s" % (msg,))
+
+
+def entry_succeeded(sess, entry):
+    entry.needs_pushed = False
+    entry.succeeded = True
+    entry.finished_time = tables.now()
+    sess.merge(entry)
+    sess.commit()
+
+
+if __name__ == "__main__":
+    ta = TerminatorApp()
+    ta.main_loop()

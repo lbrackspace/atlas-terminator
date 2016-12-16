@@ -92,19 +92,31 @@ class TestUtils(unittest.TestCase):
     @unittest.skip("Still trying to figure out how to automate this")
     def test_suspend_my_account(self):
         ta = terminator_app.TerminatorApp()
-        ta.suspend_aid("TEST", 354934)
+        self.assertTrue(ta.suspend_aid("TEST", 354934))
+        nop()
 
     @unittest.skip("this one too")
     def test_scan_clb_dbs(self):
         ta = terminator_app.TerminatorApp()
         lbs = ta.get_all_lbs(354934)
-        pass
+        nop()
 
     @unittest.skip("this one too")
-    def test_suspend_my_account(self):
+    def test_unsuspend_my_account(self):
         ta = terminator_app.TerminatorApp()
-        ta.unsuspend_aid("TEST", 354934)
-        pass
+        self.assertTrue(ta.unsuspend_aid(354934))
+        nop()
+
+    @unittest.skip("Be carfull with this one")
+    def test_delete_my_account(self):
+        ta = terminator_app.TerminatorApp()
+        self.assertTrue(ta.delete_aid(354934))
+        nop()
+
+    @unittest.skip("Yea this one looks real")
+    def test_run_iteration(self):
+        ta = terminator_app.TerminatorApp()
+        self.assertTrue(ta.run_iteration())
 
 
 conf_text = """
@@ -134,6 +146,10 @@ conf_text = """
 }
 
 """
+
+
+def nop():
+    pass
 
 if __name__ == "__main__":
     unittest.main()

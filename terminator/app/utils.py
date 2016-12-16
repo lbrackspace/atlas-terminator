@@ -5,14 +5,17 @@ from terminator.app.db import tables
 import base64
 import dateutil.parser
 import dateutil.tz
+import traceback
 import operator
 import requests
 import logging
+import random
 import json
 import os
 
 DEFAULT_CONF_FILE = "/etc/openstack/atlas/terminator.json"
 engine = None
+rnd = random.Random()
 
 
 class TerminatorFeedClient(object):
@@ -80,7 +83,7 @@ class TerminatorFeedClient(object):
         feed = feed_obj['feed']
         entries = []
         for entry in feed['entry']:
-            eid = entry['id']
+            eid = entry['id'].split(":")[-1]
             tid = get_tenant_id(entry)
             dt = get_event_datetime(entry)
             ev = get_event(entry)
@@ -120,7 +123,7 @@ class LbaasClient(object):
         req = requests.post(url, data=data, headers=self.headers)
         return req
 
-    def unsuspend_lb(self, terminator_feed_id, lid):
+    def unsuspend_lb(self, lid):
         uri = "management/loadbalancers/%d/suspension" % (lid,)
         dc = self.dc
         ep = self.conf['clb']['dc'][dc]['endpoint']
@@ -133,6 +136,7 @@ class LbaasClient(object):
         nodes = [{"address": "216.58.216.196", "port": 80,
                  "condition": "ENABLED"}]
         vips = [{"type": "PUBLIC"}]
+        name = "terminator_lb_%d" % (rnd.randint(1000, 9999),)
         lb = {"name": "terminator_lb_test", "port": 80, "protocol": "HTTP",
               "virtualIps": vips, "nodes": nodes}
         uri = "%d/loadbalancers" % (aid, )
@@ -142,6 +146,24 @@ class LbaasClient(object):
         data = json.dumps(obj, indent=4)
         url = ep + uri
         req = requests.post(url, headers=self.headers, data=data)
+        text = req.text
+        return req
+
+    def delete_suspended_lb(self, lid):
+        dc = self.dc
+        ep = self.conf['clb']['dc'][dc]['endpoint']
+        uri = "management/loadbalancers/%d/suspended" % (lid,)
+        url = ep + uri
+        req = requests.delete(url, headers=self.headers)
+        text = req.text
+        return req
+
+    def delete_lb(self, aid, lid):
+        dc = self.dc
+        ep = self.conf['clb']['dc'][dc]['endpoint']
+        uri = "%d/loadbalancers/%d" % (aid, lid)
+        url = ep + uri
+        req = requests.delete(url, headers=self.headers)
         text = req.text
         return req
 
@@ -245,3 +267,7 @@ def create_tables(conf=None):
     engine = get_db_engine(conf=conf)
     tables.metadata.create_all(engine)
 
+def excuse():
+    except_message = traceback.format_exc()
+    stack_message = traceback.format_stack()
+    return except_message + " " + str(stack_message)

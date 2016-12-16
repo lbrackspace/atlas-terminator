@@ -46,6 +46,7 @@ entry_table = Table('entry', metadata,
                     Column('num_attempts', Integer),
                     Column('created_time', DateTime),
                     Column('finished_time', DateTime),
+                    Column('succeeded', Boolean),
                     Index('run_tenant_id', 'run_id', 'tenant_id'),
                     mysql_engine='InnoDB',
                     mysql_charset='utf8')
@@ -62,17 +63,18 @@ class Entry(object):
         self.event_time = kw.get('event_time', None)
         self.event = kw.get('event', None)
         self.event_body = kw.get('entry_body', None)
-        self.needs_push = kw.get('needs_push', None)
+        self.needs_push = kw.get('needs_push', True)
         self.num_attempts = kw.get('num_attempt', 0)
         self.created_time = kw.get('created_time', now())
-        self.finished_time = kw.get('finished_time', None)
+        self.finished_time = kw.get('finished_time', None),
+        self.succeeded = kw.get('succeeded', False)
 
     def to_dict(self):
         out = {}
         for attr in ['id', 'dc', 'region', 'entry_id', 'run_id',
                      'tenant_id', 'event_time', 'event', 'event_body',
                      'needs_push', 'num_attempts', 'created_time',
-                     'finished_time']:
+                     'finished_time', 'succeeded']:
             out[attr] = getattr(self, attr, None)
         return out
 
@@ -104,7 +106,7 @@ class Action(object):
         self.aid = kw.get('aid')
         self.dc = kw.get('dc')
         self.lid = kw.get('lid')
-        self.run = kw.get('run_id', kw.get('run_id', curr_run_id))
+        self.run_id = kw.get('run_id', kw.get('run_id', curr_run_id))
         self.status_from = kw.get('status_from')
         self.status_to = kw.get('status_to')
         self.time = kw.get('time', now())
@@ -154,11 +156,13 @@ class Log(object):
     def __repr__(self):
         return self.__str__()
 
+
+def now():
+    return datetime.datetime.now(dateutil.tz.tzutc()).replace(tzinfo=None)
+
 orm.mapper(Entry, entry_table)
 orm.mapper(Log, log_table)
 orm.mapper(Run, run_table)
 orm.mapper(Action, action_table)
 
 
-def now():
-    return datetime.datetime.now(dateutil.tz.tzutc()).replace(tzinfo=None)
