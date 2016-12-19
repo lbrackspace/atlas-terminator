@@ -113,7 +113,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(ta.delete_aid(354934))
         nop()
 
-    @unittest.skip("Yea this one looks real")
+    #@unittest.skip("Yea this one looks real")
     def test_run_iteration(self):
         ta = terminator_app.TerminatorApp()
         self.assertTrue(ta.run_iteration())

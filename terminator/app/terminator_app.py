@@ -16,20 +16,39 @@ class TerminatorApp(object):
         self.tfc = utils.TerminatorFeedClient(self.conf)
         self.logger = TerminatorLogger(self.conf)
         self.delay = float(self.conf['clb']['delay'])
+        self.run_id = None
         for (dcname, dc_dict) in self.conf['clb']['dc'].iteritems():
             self.endpoints[dcname] = dc_dict['endpoint']
         if tables.curr_run_id is None:
             self.bump_run()
 
-    def iteration_body(self):
-        sess = crud.get_session()
-        run_id = crud.inc_curr_run(sess)
+    def run_iteration(self):
+        try:
+            sess = crud.get_session()
+            self.bump_run_id(sess)
+            #self.run_terminator_client(sess)
+            self.run_needs_push(sess)
+            return True
+        except:
+            self.logger.set_tenant_id(0)
+            self.logger.log("Error During run %d exception caught",
+                            tables.curr_run_id, comment=utils.excuse(),
+                            type="error")
+            return False
+
+
+    def bump_run_id(self, sess):
+        self.run_id = crud.inc_curr_run(sess)
         self.logger.set_tenant_id(0)
-        self.logger.log("Begining run %d", run_id)
+        self.logger.log("Begining run %d", self.run_id)
+
+    def run_terminator_client(self, sess):
         self.logger.log("fetching new entries from terminator feed")
-        r = self.get_new_terminator_entries()
+        #r = self.get_new_terminator_entries()
         self.logger.log("found %d entries of which %d are new",
                         r['n_entries'], r['n_new_entries'])
+
+    def run_needs_push(self, sess):
         ready_entries = crud.get_needs_push(sess)
         for entry in ready_entries:
             entry.num_attempts += 1
@@ -63,21 +82,11 @@ class TerminatorApp(object):
                 if self.delete_aid(aid):
                     entry_succeeded(sess, entry)
 
-    def run_iteration(self):
-        try:
-            self.iteration_body()
-            return True
-        except:
-            self.logger.set_tenant_id(0)
-            self.logger.log("Error During run %d exception caught",
-                            tables.curr_run_id, comment=utils.excuse(),
-                            type="error")
-            return False
 
     def main_loop(self):
         while True:
             self.run_iteration(self)
-            time.sleep(self.conf['run_every_n_secs'])
+            utils.wait_mod_minute(5)
 
     def bump_run(self):
         sess = crud.get_session(self.conf)
@@ -162,7 +171,7 @@ class TerminatorApp(object):
                 sess.commit()
                 self.logger.log("Attempting to suspend %d_%d %s",
                                 aid, lid, dc)
-                req = self.lc.suspend_lb(terminator_id, lid)
+                req = self.lc.suspend_lb(terminator_id.replace('-',''), lid)
                 time.sleep(self.delay)  #  Cause the api is fragile.
                 if req.status_code != 202:
                     fmt = "Error got http %d when trying to suspend lb %d: %s"
@@ -223,17 +232,22 @@ class TerminatorApp(object):
 
     def get_all_lbs(self, aid):
         lbs = {}
+        status_dict = {}
         lb_count = 0
         for (dc, endpoint) in self.endpoints.iteritems():
             self.lc.set_dc(dc)
             dc_lbs = self.lc.get_lbs(aid)
             lbs[dc] = []
             for lb in dc_lbs:
-                if lb['status'] == "DELETED":
+                status = lb['status']
+                if status == "DELETED":
                     continue
+                if status not in status_dict:
+                    status_dict[status] = 0
+                status_dict[status] += 1
                 lbs[dc].append(lb)
                 lb_count += 1
-        return {'lbs': lbs, 'lb_count': lb_count}
+        return {'lbs': lbs, 'lb_count': lb_count, 'status': status_dict}
 
     # Create loadbalancers in each region for testing only
     def create_lbs(self, aid):
@@ -281,7 +295,7 @@ class TerminatorLogger(object):
 
 
 def entry_succeeded(sess, entry):
-    entry.needs_pushed = False
+    entry.needs_push = False
     entry.succeeded = True
     entry.finished_time = tables.now()
     sess.merge(entry)

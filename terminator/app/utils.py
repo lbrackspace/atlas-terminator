@@ -5,11 +5,13 @@ from terminator.app.db import tables
 import base64
 import dateutil.parser
 import dateutil.tz
+import datetime
 import traceback
 import operator
 import requests
 import logging
 import random
+import time
 import json
 import os
 
@@ -271,3 +273,20 @@ def excuse():
     except_message = traceback.format_exc()
     stack_message = traceback.format_stack()
     return except_message + " " + str(stack_message)
+
+def next_mod_minute(mod_minutes):
+    dt = datetime.datetime.now(dateutil.tz.tzutc())
+    n = (dt.minute/mod_minutes)*mod_minutes
+    ndt = datetime.datetime(dt.year, dt.month, dt.day, dt.hour, n,
+                            tzinfo=dateutil.tz.tzutc())
+    ndt += datetime.timedelta(minutes=mod_minutes)
+    return ndt
+
+def wait_mod_minute(mod_minutes):
+    wait_till = next_mod_minute(mod_minutes)
+    while True:
+        dt = datetime.datetime.now(dateutil.tz.tzutc())
+        if dt < wait_till:
+            time.sleep(1.0)
+        else:
+            break
