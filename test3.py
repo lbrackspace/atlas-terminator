@@ -8,13 +8,30 @@ import json
 
 SUCKERS_ACCOUNT = 354934
 
+def create_events(events):
+    sess = crud.get_session()
+    for event in events:
+        e = tables.Entry()
+        e.dc = "GLOBAL"
+        e.region = "GLOBAL"
+        e.entry_id = str(uuid.uuid4())
+        e.tenant_id = SUCKERS_ACCOUNT
+        e.event_time = tables.now()
+        e.event = event
+        e.event_body = json.dumps({"pfft": "some_event"})
+        e.needs_push = True
+        e.created_time = tables.now()
+        sess.add(e)
+    sess.commit()
+
+
 ta = terminator_app.TerminatorApp()
 
 # Clean up old LBS for some suckers test account
-ta.delete_aid(SUCKERS_ACCOUNT)
+#ta.delete_aid(SUCKERS_ACCOUNT)
 
 # And create one per region
-ta.create_lbs(SUCKERS_ACCOUNT)
+#ta.create_lbs(SUCKERS_ACCOUNT)
 
 # Find any new Terminator feeds and store them in the database
 
@@ -25,7 +42,7 @@ ta.create_lbs(SUCKERS_ACCOUNT)
 # so that the main iteration loop ignores them during its pass
 
 sess = crud.get_session()
-#entry_list = sess.query(tables.Entry).all()
+entry_list = sess.query(tables.Entry).all()
 #for entry in entry_list:
 #    entry.succeeded = True
 #    entry.needs_push = False
@@ -34,20 +51,6 @@ sess = crud.get_session()
 #sess.commit()
 
 #Create bogus SUSUPEND FULL SUSPEND  TERMINATE events for the aid
-
-for event in ["SUSPEND", "FULL", "SUSPEND", "TERMINATE"]:
-    e = tables.Entry()
-    e.dc = "GLOBAL"
-    e.region = "GLOBAL"
-    e.entry_id = str(uuid.uuid4())
-    e.tenant_id = SUCKERS_ACCOUNT
-    e.event_time = tables.now()
-    e.event = event
-    e.event_body = json.dumps({"pfft": "some_event"})
-    e.needs_push = True
-    e.created_time = tables.now()
-    sess.add(e)
-sess.commit()
-
+create_events(["SUSPEND", "FULL","SUSPEND","TERMINATED"])
 # now run the iteration and start debugging here
 ta.run_iteration()

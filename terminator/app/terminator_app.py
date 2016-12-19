@@ -26,7 +26,7 @@ class TerminatorApp(object):
         try:
             sess = crud.get_session()
             self.bump_run_id(sess)
-            #self.run_terminator_client(sess)
+            self.run_terminator_client(sess)
             self.run_needs_push(sess)
             return True
         except:
