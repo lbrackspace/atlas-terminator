@@ -71,6 +71,8 @@ class TerminatorFeedClient(object):
                 r = self.get_feeds(**kw)
                 feed_obj = json.loads(r.text)
                 n_entries = feed_obj['feed']['entry']
+                if n_entries <= 0:
+                    end_loop = True
                 logging.info('fetched %d etnries', n_entries)
                 kw['params']['marker'] = feed_obj['feed']['entry'][0]['id']
                 entries.extend(self.parse_entries(feed_obj))

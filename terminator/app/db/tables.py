@@ -2,7 +2,7 @@ import datetime
 import dateutil.tz
 import sqlalchemy
 from sqlalchemy import Integer, Boolean, Column, DateTime, String, Text, \
-    Table, orm, ForeignKey, Index
+    Table, orm, Index
 
 metadata = sqlalchemy.MetaData()
 
@@ -56,17 +56,17 @@ class Entry(object):
     def __init__(self, *args, **kw):
         global curr_run_id
         self.entry_id = kw.get('entry_id', None)
-        self.run_id = kw.get('run_id', kw.get('run_id', curr_run_id)),
+        self.run_id = kw.get('run_id', kw.get('run_id', curr_run_id))
         self.dc = kw.get('dc', None)
         self.region = kw.get('region', None)
-        self.tenant_id = kw.get('tenant_id', None),
+        self.tenant_id = kw.get('tenant_id', None)
         self.event_time = kw.get('event_time', None)
         self.event = kw.get('event', None)
         self.event_body = kw.get('entry_body', None)
         self.needs_push = kw.get('needs_push', True)
         self.num_attempts = kw.get('num_attempt', 0)
         self.created_time = kw.get('created_time', now())
-        self.finished_time = kw.get('finished_time', None),
+        self.finished_time = kw.get('finished_time', None)
         self.succeeded = kw.get('succeeded', False)
 
     def to_dict(self):
@@ -132,6 +132,7 @@ log_table = Table('log', metadata,
                   Column('msg', Text),
                   Column('tenant_id', Integer, index=True),
                   Column('created', DateTime, index=True),
+                  Column('comment', Text),
                   mysql_engine='InnoDB',
                   mysql_charset='utf8')
 
@@ -143,10 +144,12 @@ class Log(object):
         self.run_id = kw.get('run_id', kw.get('run_id', curr_run_id))
         self.tenant_id = kw.get('tenant_id', None)
         self.created = kw.get('created', now())
+        self.comment = kw.get('comment', None)
 
     def to_dict(self):
         out = {}
-        for attr in ['id', 'msg', 'run_id', 'tenant_id', 'created']:
+        for attr in ['id', 'msg', 'run_id', 'tenant_id', 'created',
+                     'comment']:
             out[attr] = getattr(self, attr, None)
         return out
 

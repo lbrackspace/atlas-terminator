@@ -3,6 +3,7 @@ from terminator.app.db import crud
 from terminator.app.db import tables
 import logging
 import time
+import sys
 
 TERMINATOR_CHOMP_SIZE = 1000  # Chomp chomp
 
@@ -40,11 +41,11 @@ class TerminatorApp(object):
     def bump_run_id(self, sess):
         self.run_id = crud.inc_curr_run(sess)
         self.logger.set_tenant_id(0)
-        self.logger.log("Begining run %d", self.run_id)
+        self.logger.log("starting run %d", self.run_id)
 
     def run_terminator_client(self, sess):
         self.logger.log("fetching new entries from terminator feed")
-        #r = self.get_new_terminator_entries()
+        r = self.get_new_terminator_entries()
         self.logger.log("found %d entries of which %d are new",
                         r['n_entries'], r['n_new_entries'])
 
@@ -290,6 +291,8 @@ class TerminatorLogger(object):
         try:
             l = getattr(logging, log_type)
             l(msg)
+            sys.stdout.write(msg)
+            sys.stdout.flush()
         except Exception, ex:
             logging.exception("Error writing to log database %s" % (msg,))
 

@@ -1,0 +1,25 @@
+{
+  "feed": {
+    "url": "https://atom.prod.dfw1.us.ci.rackspace.net/customer_access_policy/events"
+  }, 
+  "run_every_n_secs": 300, 
+  "db": "sqlite:///",
+  "clb": {
+    "delay": 0,
+    "passwd": "fake_passwd",
+    "user": "fake_user",
+    "dc": {
+      "dfw": {
+        "endpoint": "https://admin.dfw.loadbalancers.api.rackspacecloud.com/v1.0/"
+      },
+      "ord": {
+        "endpoint": "https://admin.ord.loadbalancers.api.rackspacecloud.com/v1.0/"
+      }
+    }
+  }, 
+  "auth": {
+    "passwd": "fake_passwd",
+    "url": "https://identity.api.rackspacecloud.com", 
+    "user": "fake_user"
+  }
+}

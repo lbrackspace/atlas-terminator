@@ -31,7 +31,7 @@ ta = terminator_app.TerminatorApp()
 #ta.delete_aid(SUCKERS_ACCOUNT)
 
 # And create one per region
-#ta.create_lbs(SUCKERS_ACCOUNT)
+ta.create_lbs(SUCKERS_ACCOUNT)
 
 # Find any new Terminator feeds and store them in the database
 

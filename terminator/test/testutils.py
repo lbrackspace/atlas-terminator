@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 from terminator.app.db import tables, crud
+import mymocks
+import mock
+import uuid
 import unittest
 import datetime
 import string
@@ -9,6 +12,12 @@ import os
 
 from terminator.app import utils
 from terminator.app import terminator_app
+
+CONF_FILE = "/etc/openstack/atlas/test_terminator.json"
+TEST_CONF_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "test-config.json")
+
+TEST_ACCOUNT = 354934
 
 class TestUtils(unittest.TestCase):
     def setUp(self):
@@ -113,10 +122,145 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(ta.delete_aid(354934))
         nop()
 
-    #@unittest.skip("Yea this one looks real")
-    def test_run_iteration(self):
-        ta = terminator_app.TerminatorApp()
-        self.assertTrue(ta.run_iteration())
+    @mock.patch('terminator.app.utils.requests', autospec=True)
+    def test_run_iteration(self, req):
+        posts = []
+        gets = []
+        dels = []
+        posts.append(mymocks.MockResponse({'access': {'token':
+                                                          {'expires': 'Never',
+                                                           'id': 'Id'}}},200))
+
+        gets.append(mymocks.MockResponse(make_fake_feed(["SUSPEND","FULL",
+                                                 "SUSPEND","TERMINATED"]),
+                                  200))
+        gets.append(mymocks.MockResponse(make_fake_feed([]),200))
+
+        #populate get_lbs for suspend
+        populate_get_lbs(gets, "ACTIVE")
+        #expect the app to send four posts to delete the 4 lbs
+        populate_responseobjects(posts, 202)
+
+        #populate get_lbs for FULL access
+        populate_get_lbs(gets, "SUSPENDED")
+
+        #expect the app to send four delete suspension calls
+        populate_responseobjects(dels, 202)
+
+        #time to suspend the LBs again.
+        populate_get_lbs(gets, "ACTIVE")
+
+        #re suspending loadbalancers
+        populate_responseobjects(posts,202)
+
+        #finally delete the loadbalancers
+        #populate gets for lbs during delete call
+        populate_get_lbs(gets, "SUSPENDED")
+
+        #expect 4 delete calls to terminate the loadbalancers
+        populate_responseobjects(dels, 202)
+
+
+        req.post.side_effect = posts
+        req.get.side_effect = gets
+        req.delete.side_effect = dels
+        test_conf = utils.load_config(utils.load_json(TEST_CONF_FILE))
+        utils.create_tables(test_conf)
+        ta = terminator_app.TerminatorApp(test_conf)
+        ta.bump_run()
+        ta.run_iteration()
+
+        # Time to check the logs and action table to see if everything worked
+        sess = crud.get_session(test_conf)
+
+        expected_order_statuses = [('ACTIVE','SUSPENDED'),
+                                   ('SUSPENDED','ACTIVE'),
+                                   ('ACTIVE','SUSPENDED'),
+                                   ('SUSPENDED', 'DELETED')]
+
+
+        lb1234_ord = (sess.query(tables.Action)
+                      .filter(tables.Action.lid==1234)
+                      .filter(tables.Action.dc=='ord')
+                      .order_by(tables.Action.time)
+                      .all())
+
+        self.assertActionsChangedFromTo(lb1234_ord, expected_order_statuses)
+        lb4567_ord = (sess.query(tables.Action)
+                      .filter(tables.Action.lid==4567)
+                      .filter(tables.Action.dc=='ord')
+                      .order_by(tables.Action.time)
+                      .all())
+
+        self.assertActionsChangedFromTo(lb1234_ord, expected_order_statuses)
+        lb1234_dfw = (sess.query(tables.Action)
+                      .filter(tables.Action.lid==1234)
+                      .filter(tables.Action.dc=='dfw')
+                      .order_by(tables.Action.time)
+                      .all())
+
+        self.assertActionsChangedFromTo(lb1234_ord, expected_order_statuses)
+        lb4567_dfw = (sess.query(tables.Action)
+                      .filter(tables.Action.lid==4567)
+                      .filter(tables.Action.dc=='dfw')
+                      .order_by(tables.Action.time)
+                      .all())
+
+        self.assertActionsChangedFromTo(lb1234_ord, expected_order_statuses)
+
+        nop()
+
+
+    def assertActionsChangedFromTo(self, action_list, expectedActions):
+        for (i, ea) in enumerate(expectedActions):
+            expected_from = ea[0]
+            expected_to = ea[1]
+            status_from = action_list[i].status_from
+            status_to = action_list[i].status_to
+            self.assertEquals(expected_from, status_from)
+            self.assertEquals(expected_to, status_to)
+
+
+def populate_responseobjects(gets, status):
+    for i in xrange(0,4):
+        gets.append(mymocks.MockResponse("blah", status))
+
+
+
+def populate_get_lbs(gets,status):
+    #populate requests for both datacenters
+    #DFW
+    gets.append(mymocks.MockResponse(make_fake_lbs([(1234,status),
+                                                    (4567, status)]), 200))
+    #ORD
+    gets.append(mymocks.MockResponse(make_fake_lbs([(1234, status),
+                                                    (4567, status)]), 200))
+
+
+#lb_list should be of the form [(1234,'ACTIVE'),(5678,"DELETED")]
+def make_fake_lbs(lb_list):
+    lbs_resp = []
+    resp = {"accountLoadBalancers":lbs_resp}
+    for (lid, status) in lb_list:
+        lbs_resp.append({"loadBalancerId": lid, "status": status})
+    return resp
+
+
+def make_fake_feed(statuses):
+    entries = []
+    feed = {"feed":{"entry":entries}}
+    dt = datetime.datetime(2016,1,1)
+    for status in statuses:
+        event = {"eventTime": dt.isoformat(), "dataCenter":"GLOBAL",
+                 "region": "GLOBAL", "tenantId": TEST_ACCOUNT,
+                 "product": {"status": status}}
+        entry={"id": "urn:uuid:%s"%(str(uuid.uuid4())),
+               "category": [{"term": "tid:%d"%(TEST_ACCOUNT,)}],
+               "content": {"event": event}}
+        dt = dt + datetime.timedelta(hours=1)
+        entries.append(entry)
+    return feed
+
 
 conf_text = """
 {
