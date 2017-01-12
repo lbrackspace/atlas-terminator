@@ -31,7 +31,7 @@ class TerminatorApp(object):
             self.run_needs_push(sess)
             return True
         except:
-            self.logger.set_tenant_id(0)
+            self.logger.set_tenant_id(None)
             self.logger.log("Error During run %d exception caught",
                             tables.curr_run_id, comment=utils.excuse(),
                             type="error")
