@@ -186,29 +186,28 @@ class TestUtils(unittest.TestCase):
                       .filter(tables.Action.dc=='ord')
                       .order_by(tables.Action.time)
                       .all())
-
         self.assertActionsChangedFromTo(lb1234_ord, expected_order_statuses)
+
         lb4567_ord = (sess.query(tables.Action)
                       .filter(tables.Action.lid==4567)
                       .filter(tables.Action.dc=='ord')
                       .order_by(tables.Action.time)
                       .all())
+        self.assertActionsChangedFromTo(lb4567_ord, expected_order_statuses)
 
-        self.assertActionsChangedFromTo(lb1234_ord, expected_order_statuses)
         lb1234_dfw = (sess.query(tables.Action)
                       .filter(tables.Action.lid==1234)
                       .filter(tables.Action.dc=='dfw')
                       .order_by(tables.Action.time)
                       .all())
+        self.assertActionsChangedFromTo(lb1234_dfw, expected_order_statuses)
 
-        self.assertActionsChangedFromTo(lb1234_ord, expected_order_statuses)
         lb4567_dfw = (sess.query(tables.Action)
                       .filter(tables.Action.lid==4567)
                       .filter(tables.Action.dc=='dfw')
                       .order_by(tables.Action.time)
                       .all())
-
-        self.assertActionsChangedFromTo(lb1234_ord, expected_order_statuses)
+        self.assertActionsChangedFromTo(lb4567_dfw, expected_order_statuses)
 
         nop()
 
