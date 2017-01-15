@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 from terminator.app.db import tables, crud
+from terminator.app.constants import (FULL, ACTIVE, TERMINATED, SUSPEND,
+                                      SUSPENDED, DELETED, GLOBAL)
 import mymocks
 import mock
 import uuid
@@ -52,9 +54,9 @@ class TestUtils(unittest.TestCase):
                          utils.get_tenant_id(self.feed['feed']['entry'][1]))
 
     def test_get_event(self):
-        self.assertEqual("SUSPENDED",
+        self.assertEqual(SUSPENDED,
                          utils.get_event(self.feed['feed']['entry'][0]))
-        self.assertEqual("TERMINATED",
+        self.assertEqual(TERMINATED,
                          utils.get_event(self.feed['feed']['entry'][1]))
 
     def test_get_event_datetime(self):
@@ -131,31 +133,31 @@ class TestUtils(unittest.TestCase):
                                                           {'expires': 'Never',
                                                            'id': 'Id'}}},200))
 
-        gets.append(mymocks.MockResponse(make_fake_feed(["SUSPEND","FULL",
-                                                 "SUSPEND","TERMINATED"]),
+        gets.append(mymocks.MockResponse(make_fake_feed([SUSPEND, FULL,
+                                                 SUSPEND,TERMINATED]),
                                   200))
         gets.append(mymocks.MockResponse(make_fake_feed([]),200))
 
         #populate get_lbs for suspend
-        populate_get_lbs(gets, "ACTIVE")
+        populate_get_lbs(gets, ACTIVE)
         #expect the app to send four posts to delete the 4 lbs
         populate_responseobjects(posts, 202)
 
         #populate get_lbs for FULL access
-        populate_get_lbs(gets, "SUSPENDED")
+        populate_get_lbs(gets, SUSPENDED)
 
         #expect the app to send four delete suspension calls
         populate_responseobjects(dels, 202)
 
         #time to suspend the LBs again.
-        populate_get_lbs(gets, "ACTIVE")
+        populate_get_lbs(gets, ACTIVE)
 
         #re suspending loadbalancers
         populate_responseobjects(posts,202)
 
         #finally delete the loadbalancers
         #populate gets for lbs during delete call
-        populate_get_lbs(gets, "SUSPENDED")
+        populate_get_lbs(gets, SUSPENDED)
 
         #expect 4 delete calls to terminate the loadbalancers
         populate_responseobjects(dels, 202)
@@ -173,10 +175,10 @@ class TestUtils(unittest.TestCase):
         # Time to check the logs and action table to see if everything worked
         sess = crud.get_session(test_conf)
 
-        expected_order_statuses = [('ACTIVE','SUSPENDED'),
-                                   ('SUSPENDED','ACTIVE'),
-                                   ('ACTIVE','SUSPENDED'),
-                                   ('SUSPENDED', 'DELETED')]
+        expected_order_statuses = [(ACTIVE, SUSPENDED),
+                                   (SUSPENDED, ACTIVE),
+                                   (ACTIVE, SUSPENDED),
+                                   (SUSPENDED, DELETED)]
 
 
         lb1234_ord = (sess.query(tables.Action)
@@ -237,7 +239,7 @@ def populate_get_lbs(gets,status):
                                                     (4567, status)]), 200))
 
 
-#lb_list should be of the form [(1234,'ACTIVE'),(5678,"DELETED")]
+#lb_list should be of the form [(1234,ACTIVE),(5678,DELETED)]
 def make_fake_lbs(lb_list):
     lbs_resp = []
     resp = {"accountLoadBalancers":lbs_resp}
@@ -251,8 +253,8 @@ def make_fake_feed(statuses):
     feed = {"feed":{"entry":entries}}
     dt = datetime.datetime(2016,1,1)
     for status in statuses:
-        event = {"eventTime": dt.isoformat(), "dataCenter":"GLOBAL",
-                 "region": "GLOBAL", "tenantId": TEST_ACCOUNT,
+        event = {"eventTime": dt.isoformat(), "dataCenter": GLOBAL,
+                 "region": GLOBAL, "tenantId": TEST_ACCOUNT,
                  "product": {"status": status}}
         entry={"id": "urn:uuid:%s"%(str(uuid.uuid4())),
                "category": [{"term": "tid:%d"%(TEST_ACCOUNT,)}],

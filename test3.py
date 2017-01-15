@@ -2,6 +2,7 @@
 
 from terminator.app.db import crud, tables
 from terminator.app import utils
+from terminator.app.constants import FULL, TERMINATED, SUSPEND, GLOBAL
 from terminator.app import terminator_app
 import uuid
 import json
@@ -12,8 +13,8 @@ def create_events(events):
     sess = crud.get_session()
     for event in events:
         e = tables.Entry()
-        e.dc = "GLOBAL"
-        e.region = "GLOBAL"
+        e.dc = GLOBAL
+        e.region = GLOBAL
         e.entry_id = str(uuid.uuid4())
         e.tenant_id = SUCKERS_ACCOUNT
         e.event_time = tables.now()
@@ -51,6 +52,6 @@ entry_list = sess.query(tables.Entry).all()
 #sess.commit()
 
 #Create bogus SUSUPEND FULL SUSPEND  TERMINATE events for the aid
-create_events(["SUSPEND", "FULL","SUSPEND","TERMINATED"])
+create_events([SUSPEND, FULL, SUSPEND, TERMINATED])
 # now run the iteration and start debugging here
 ta.run_iteration()

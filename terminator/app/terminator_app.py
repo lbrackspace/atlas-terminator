@@ -1,4 +1,6 @@
 from terminator.app import utils
+from terminator.app.constants import (FULL, SUSPEND, TERMINATED, SUSPENDED,
+                                      ACTIVE, DELETED, ERROR, GLOBAL)
 from terminator.app.db import crud
 from terminator.app.db import tables
 import logging
@@ -73,13 +75,13 @@ class TerminatorApp(object):
                 continue
             self.logger.log("Event %s recieved for aid %s",
                             entry.event, aid)
-            if entry.event == "SUSPEND":
+            if entry.event == SUSPEND:
                 if self.suspend_aid(eid, aid):
                     entry_succeeded(sess, entry)
-            elif entry.event == "FULL":
+            elif entry.event == FULL:
                 if self.unsuspend_aid(aid):
                     entry_succeeded(sess, entry)
-            elif entry.event == "TERMINATED":
+            elif entry.event == TERMINATED:
                 if self.delete_aid(aid):
                     entry_succeeded(sess, entry)
 
@@ -122,7 +124,7 @@ class TerminatorApp(object):
                                     lid, status)
                     continue
                 act = tables.Action(dc=dc, aid=aid, lid=lid,
-                                    status_from=status, status_to="ACTIVE")
+                                    status_from=status, status_to=ACTIVE)
                 sess.add(act)
                 sess.commit()
                 self.logger.log("Attempting to unsuspend %d_%d %s",
@@ -154,20 +156,20 @@ class TerminatorApp(object):
                 self.lc.set_dc(dc)
                 lid = lb['lid']
                 status = lb['status']
-                if status == "ERROR":
+                if status == ERROR:
                     self.logger.log("Not suspending an error loadbalancer %d",
                                     lid)
                     continue
-                if status == "SUSPENDED":
+                if status == SUSPENDED:
                     self.logger.log("Loadbalancer already suspended %d",
                                     lid)
                     continue
-                if status != "ACTIVE":
+                if status != ACTIVE:
                     self.logger.log("not suspending  loadbalancer %d from %s ",
                                     lid, status)
                     continue
                 act = tables.Action(dc=dc, aid=aid, lid=lid,
-                                    status_from=status, status_to="SUSPENDED")
+                                    status_from=status, status_to=SUSPENDED)
                 sess.add(act)
                 sess.commit()
                 self.logger.log("Attempting to suspend %d_%d %s",
@@ -196,7 +198,7 @@ class TerminatorApp(object):
             for lb in lb_list:
                 lid = lb['lid']
                 status = lb['status']
-                if status != "ACTIVE" and status != "SUSPENDED":
+                if status != ACTIVE and status != SUSPENDED:
                     fmt = "Not deleting lb %d_%d in %s its status is %s"
                     msg = fmt % (aid, lid, dc, status)
                     self.logger.log(msg, tenant_id=aid)
@@ -205,12 +207,12 @@ class TerminatorApp(object):
                                 aid, lid, dc)
                 self.lc.set_dc(dc)
                 act = tables.Action(dc=dc, aid=aid, lid=lid,
-                                    status_from=status, status_to="DELETED")
+                                    status_from=status, status_to=DELETED)
                 sess.add(act)
                 sess.commit()
-                if status == "ACTIVE":
+                if status == ACTIVE:
                     req = self.lc.delete_lb(aid, lid)
-                elif status == "SUSPENDED":
+                elif status == SUSPENDED:
                     req = self.lc.delete_suspended_lb(lid)
                     # These are special
                 else:
@@ -241,7 +243,7 @@ class TerminatorApp(object):
             lbs[dc] = []
             for lb in dc_lbs:
                 status = lb['status']
-                if status == "DELETED":
+                if status == DELETED:
                     continue
                 if status not in status_dict:
                     status_dict[status] = 0
