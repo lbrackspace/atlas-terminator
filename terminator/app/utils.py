@@ -2,6 +2,8 @@
 
 import sqlalchemy
 from terminator.app.db import tables
+from terminator.test import mymocks
+import abc
 import base64
 import dateutil.parser
 import dateutil.tz
@@ -99,7 +101,9 @@ class TerminatorFeedClient(object):
         return entries
 
 
-class LbaasClient(object):
+class LbaasClientBase(object):
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self, conf=None):
         self.conf = load_config(conf)
         self.dc = None
@@ -110,8 +114,60 @@ class LbaasClient(object):
                         'content-type': 'application/json',
                         'Authorization': 'BASIC %s' % (realm,)}
 
+    def get_lbs(self, aid):
+        out = []
+        dc = self.dc
+        ep = self.conf['clb']['dc'][dc]['endpoint']
+        uri = "management/accounts/%d/loadbalancers" % (aid, )
+        url = ep + uri
+        req = requests.get(url, headers=self.headers)
+        if req.status_code == 404:
+            logging.info("coulden't find account %d in region %s skipping",
+                         aid, dc)
+            return []  # No loadbalancers found most likely not our account
+
+        if req.status_code != 200:
+            logging.warn("couldn't get lbs for account %d %d %s",
+                         aid, req.status_code, req.text)
+            return []
+        lbs = json.loads(req.text)
+        for lb in lbs['accountLoadBalancers']:
+            status = lb['status']
+            lid = lb['loadBalancerId']
+            out.append({'status': status, 'lid': lid})
+        return out
+
     def set_dc(self, dc):
         self.dc = dc
+
+
+
+class DryRunLbaasClient(LbaasClientBase):
+    def __init__(self, conf=None):
+        super(DryRunLbaasClient, self).__init__(conf=conf)
+
+    def suspend_lb(selfself, ticket_id, lid):
+        return mymocks.MockResponse({}, 202)
+
+    def unsuspend_lb(self, lid):
+        return mymocks.MockResponse({}, 202)
+
+    def create_lb(self, aid):
+        return mymocks.MockResponse({}, 202)
+
+    def delete_suspended_lb(self, lid):
+        return mymocks.MockResponse({}, 202)
+
+    def delete_lb(self, aid, lid):
+        return mymocks.MockResponse({}, 202)
+
+    def get_lbs(self, aid):
+        return mymocks.MockResponse({}, 202)
+
+
+class LbaasClient(LbaasClientBase):
+    def __init__(self, conf=None):
+        super(LbaasClient, self).__init__(conf=conf)
 
     def suspend_lb(self, ticket_id, lid):
         susp = {"reason": "Terminator feed",
@@ -171,30 +227,7 @@ class LbaasClient(object):
         text = req.text
         return req
 
-    def get_lbs(self, aid):
-        out = []
-        dc = self.dc
-        ep = self.conf['clb']['dc'][dc]['endpoint']
-        uri = "management/accounts/%d/loadbalancers" % (aid, )
-        url = ep + uri
-        req = requests.get(url, headers=self.headers)
-        if req.status_code == 404:
-            logging.info("coulden't find account %d in region %s skipping",
-                         aid, dc)
-            return []  # No loadbalancers found most likely not our account
-
-        if req.status_code != 200:
-            logging.warn("couldn't get lbs for account %d %d %s",
-                         aid, req.status_code, req.text)
-            return []
-        lbs = json.loads(req.text)
-        for lb in lbs['accountLoadBalancers']:
-            status = lb['status']
-            lid = lb['loadBalancerId']
-            out.append({'status': status, 'lid': lid})
-        return out
-
-
+# yea pretty silly. If conf is already defined don't reload it
 def load_config(conf=None):
     if conf is None:
         conf = load_json(DEFAULT_CONF_FILE)

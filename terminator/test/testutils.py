@@ -4,6 +4,7 @@ from terminator.app.db import tables, crud
 from terminator.app.constants import (FULL, ACTIVE, TERMINATED, SUSPEND,
                                       SUSPENDED, DELETED, GLOBAL)
 import mymocks
+from terminator.app.db import crud
 import mock
 import uuid
 import unittest
@@ -28,6 +29,10 @@ class TestUtils(unittest.TestCase):
         with open(json_text_file) as fp:
             json_text = fp.read()
         self.feed = json.loads(json_text)
+        utils.create_tables(self.conf)
+
+    def tearDown(self):
+        crud.DBSession = None
 
     def test_feed_parser(self):
         # We are testing the feed parser so we don't need to connect to
@@ -209,8 +214,15 @@ class TestUtils(unittest.TestCase):
                       .all())
         self.assertActionsChangedFromTo(lb4567_dfw, expected_order_statuses)
 
-        nop()
+    def test_dryrun_config(self):
+        ta = terminator_app.TerminatorApp(conf=self.conf)
+        self.assertIsInstance(ta.lc, utils.LbaasClient)
+        self.assertIsNot(ta.lc, utils.DryRunLbaasClient)
 
+        self.conf['dryrun'] = True
+        ta = terminator_app.TerminatorApp(conf=self.conf)
+        self.assertIsInstance(ta.lc, utils.DryRunLbaasClient)
+        self.assertIsNot(ta.lc, utils.LbaasClient)
 
     def assertActionsChangedFromTo(self, action_list, expectedActions):
         for (i, ea) in enumerate(expectedActions):

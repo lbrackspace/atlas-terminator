@@ -14,10 +14,13 @@ class TerminatorApp(object):
     def __init__(self, conf=None):
         self.conf = utils.load_config(conf)
         self.endpoints = {}
-        self.sess = crud.get_session()
-        self.lc = utils.LbaasClient(self.conf)
-        self.tfc = utils.TerminatorFeedClient(self.conf)
-        self.logger = TerminatorLogger(self.conf)
+        self.sess = crud.get_session(conf=self.conf)
+        if self.conf.get('dryrun', False):
+            self.lc = utils.DryRunLbaasClient(conf=self.conf)
+        else:
+            self.lc = utils.LbaasClient(conf=self.conf)
+        self.tfc = utils.TerminatorFeedClient(conf=self.conf)
+        self.logger = TerminatorLogger(conf=self.conf)
         self.delay = float(self.conf['clb']['delay'])
         self.run_id = None
         for (dcname, dc_dict) in self.conf['clb']['dc'].iteritems():
@@ -88,7 +91,7 @@ class TerminatorApp(object):
 
     def main_loop(self):
         while True:
-            self.run_iteration(self)
+            self.run_iteration()
             utils.wait_mod_minute(5)
 
     def bump_run(self):
@@ -307,6 +310,3 @@ def entry_succeeded(sess, entry):
     sess.commit()
 
 
-if __name__ == "__main__":
-    ta = TerminatorApp()
-    ta.main_loop()
