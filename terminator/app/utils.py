@@ -161,9 +161,6 @@ class DryRunLbaasClient(LbaasClientBase):
     def delete_lb(self, aid, lid):
         return mymocks.MockResponse({}, 202)
 
-    def get_lbs(self, aid):
-        return mymocks.MockResponse({}, 202)
-
 
 class LbaasClient(LbaasClientBase):
     def __init__(self, conf=None):

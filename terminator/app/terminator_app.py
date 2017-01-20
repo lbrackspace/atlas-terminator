@@ -1,5 +1,5 @@
 from terminator.app import utils
-from terminator.app.constants import (FULL, SUSPEND, TERMINATED, SUSPENDED,
+from terminator.app.constants import (FULL, TERMINATED, SUSPENDED,
                                       ACTIVE, DELETED, ERROR, GLOBAL)
 from terminator.app.db import crud
 from terminator.app.db import tables
@@ -78,7 +78,7 @@ class TerminatorApp(object):
                 continue
             self.logger.log("Event %s recieved for aid %s",
                             entry.event, aid)
-            if entry.event == SUSPEND:
+            if entry.event == SUSPENDED:
                 if self.suspend_aid(eid, aid):
                     entry_succeeded(sess, entry)
             elif entry.event == FULL:
@@ -114,7 +114,6 @@ class TerminatorApp(object):
     def unsuspend_aid(self, aid):
         sess = crud.get_session(self.conf)
         lbs = self.get_all_lbs(aid)
-        user = self.conf['clb']['user']
         self.logger.set_tenant_id(aid)
         self.logger.log("Unsuspending all LBS for account %d", aid)
         all_unsuspends_worked = True  # During borked loop set this to false
@@ -286,11 +285,13 @@ class TerminatorLogger(object):
 
     def log(self, fmt, *args, **kw):
         log_type = kw.pop('type', 'info')  # info, error, warn, debug
+        comment = kw.pop('comment', None)
         if self.sess is None:
             self.reset_session()
         msg = fmt % args
         msg = msg.replace("\n", " ")  # Line feeds are horrible in the db
-        logobj = tables.Log(msg=msg, tenant_id=self.tenant_id)
+        logobj = tables.Log(msg=msg, tenant_id=self.tenant_id,
+                            comment=comment)
         self.sess.add(logobj)
         self.sess.commit()
         try:
@@ -310,3 +311,12 @@ def entry_succeeded(sess, entry):
     sess.commit()
 
 
+if __name__ == "__main__":
+    conf = utils.load_config(conf=None)
+    if "--dryrun" in sys.argv:
+        conf['dryrun'] = True
+    ta = TerminatorApp(conf=conf)
+    if conf.get('dryrun', False):
+        ta.run_iteration()  # This is a dry run so do one iteration
+    else:
+        ta.main_loop()
